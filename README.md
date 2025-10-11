@@ -1,10 +1,7 @@
 # Pandora
 A lightning-fast package manager for AtlasLinux
 
-### High-level design
-Pandora is a per-user package manager for your custom x86_64 Linux distro that installs everything under $HOME and supports co-installable exact versions using a symlink forest. It uses your custom .pkg format and ACL registry index, verifies SHA256 signatures, integrates the MPT build system, and exposes a Git-like CLI with colored progress output and human-readable conflict explanations.
-
----
+## High-level design
 
 ### On-disk layout and activation model
 - **Root paths**
@@ -146,11 +143,3 @@ Pandora is a per-user package manager for your custom x86_64 Linux distro that i
 - Keep the ACL parser as a central library used by both client and registry tooling.
 - Expose a machine-readable log for CI (plain text machine-friendly lines) even if no JSON output is supported.
 - Add comprehensive tests for reproducibility and SHA256 verification.
-
-If you want, I will now generate:
-- Detailed manifest ACL schema for manifest.acl
-- Exact on-disk path examples and atomic switch algorithm
-- CLI usage examples and help text for each command
-- Minimal registry ACL index specification and example responses
-
-Tell me which of those to generate next and I will produce it.

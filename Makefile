@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -L../../lib/libacl/build -lacl
+CFLAGS = -L../../lib/libacl/build -L../../lib/libcurl/build -lacl -lcurl
 
 BUILD_DIR = build
 SRC_DIR = src

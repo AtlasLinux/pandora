@@ -3,30 +3,50 @@
 
 #include <stddef.h>
 
-/* Profile assembly result codes */
+/* Error codes returned by profile_assemble_tmp */
 #define PROFILE_OK 0
-#define PROFILE_CONFLICT 1
-#define PROFILE_MISSING_TARGET 2
+#define PROFILE_MISSING_TARGET 1
+#define PROFILE_CONFLICT 2
+#define PROFILE_INVALID_INPUT 3
+#define PROFILE_INTERNAL_ERROR 4
 
-/* Assembly plan entry (caller supplies arrays) */
 typedef struct {
-    const char *relpath;      /* e.g., "bin/mytool" */
-    const char *target_path;  /* absolute path into store/<pkg>/<ver>/files/... */
-    const char *pkg_name;
-    const char *pkg_version;
+    const char *relpath;      /* relative path inside profile (caller-owned) */
+    const char *target_path;  /* path in store to point at (caller-owned) */
+    const char *pkg_name;     /* optional, caller-owned (for diagnostics) */
+    const char *pkg_version;  /* optional, caller-owned (for diagnostics) */
 } ProfileEntry;
 
-/* Assemble a temporary profile symlink forest and check conflicts.
-   - entries: array of ProfileEntry
-   - n_entries: count
-   - tmp_profile_path_out: malloced path to tmp profile directory on success (caller frees)
-   - If conflict or missing target, function returns PROFILE_CONFLICT or PROFILE_MISSING_TARGET and prints diagnostics.
-*/
-int profile_assemble_tmp(const ProfileEntry *entries, size_t n_entries, char **tmp_profile_path_out);
+/* Assemble a temporary profile directory. entries and the strings inside are
+ * owned by the caller and must remain valid for the call duration. The
+ * function makes its own copies as required and never frees caller memory.
+ *
+ * On success: returns PROFILE_OK and *out_tmp_profile_dir is a malloc'ed
+ * string containing the path to the created temp profile dir. Caller owns
+ * this string. Caller must free() it if not passed to profile_atomic_activate.
+ *
+ * On error: returns a PROFILE_* error code and *out_tmp_profile_dir is NULL.
+ */
+int profile_assemble_tmp(const ProfileEntry *entries, size_t n_entries, char **out_tmp_profile_dir);
 
-/* Atomically activate tmp_profile_path by renaming to profiles/<profile>-new-<uuid>, then swap vir symlink.
-   - tmp_profile_path must be within $HOME/pandora/profiles
-   Returns 0 on success, nonzero on failure. */
-int profile_atomic_activate(const char *tmp_profile_path, const char *profile_name);
+/* Atomically activate a tmp profile produced by profile_assemble_tmp.
+ *
+ * tmp_profile_dir must be a path returned by profile_assemble_tmp.
+ * On success: returns 0. The directory referred to by tmp_profile_dir has
+ * been renamed into the profiles directory and vir now points to the new
+ * profile. After success the caller must NOT free tmp_profile_dir (its path
+ * has been moved on disk; the string value is still heap memory but the
+ * namespace ownership has changed).
+ *
+ * On error: returns -1 and the tmp_profile_dir has not been consumed; caller
+ * retains ownership and should free it when appropriate.
+ */
+int profile_atomic_activate(const char *tmp_profile_dir, const char *profile_name);
 
-#endif
+/* Convenience: remove a profile (not implemented here in detail) */
+int profile_remove(const char *profile_name);
+
+/* Helper to get pandora root into buf (buflen must be PATH_MAX). Returns buf or NULL */
+const char *profile_get_pandora_root(char *buf, size_t buflen);
+
+#endif /* PROFILE_MANAGER_H */

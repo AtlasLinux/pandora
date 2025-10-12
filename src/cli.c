@@ -5,6 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <termios.h>
 
 #include "downloader.h"
 #include "store_manager.h"
@@ -35,14 +38,42 @@ static int split_name_ver(const char *s, char **out_name, char **out_ver) {
 }
 
 /* Prompt yes/no; returns 1 for yes, 0 for no */
-static int prompt_yesno(const char *msg, int assume_yes) {
-    if (assume_yes) return 1;
-    fprintf(stderr, "%s [y/N]: ", msg);
-    fflush(stderr);
-    char buf[8];
-    if (!fgets(buf, sizeof(buf), stdin)) return 0;
-    if (buf[0] == 'y' || buf[0] == 'Y') return 1;
-    return 0;
+static int prompt_yesno(const char *msg, int assume_yes)
+{
+    char buf[64];
+    char *p;
+
+    if (assume_yes) {
+        fprintf(stderr, "debug: assume_yes true\n");
+        return 1;
+    }
+
+    if (printf("%s [y/N]: ", msg) < 0) {
+        fprintf(stderr, "debug: printf failed\n");
+        return 0;
+    }
+    fflush(stdout);
+
+    if (!fgets(buf, sizeof buf, stdin)) {
+        if (feof(stdin)) {
+            fprintf(stderr, "debug: fgets returned NULL: EOF on stdin\n");
+        } else {
+            fprintf(stderr, "debug: fgets returned NULL: error: %s\n", strerror(errno));
+        }
+        return 0;
+    }
+
+    p = buf;
+    while (*p == ' ' || *p == '\t')
+        p++;
+
+    if (*p == '\n' || *p == '\0') {
+        fprintf(stderr, "debug: first non-space is newline or NUL (empty answer)\n");
+        return 0;
+    }
+
+    fprintf(stderr, "debug: first non-space char = '%c' (0x%02x)\n", *p, (unsigned char)*p);
+    return (*p == 'y' || *p == 'Y') ? 1 : 0;
 }
 
 /* Minimal helper to extract manifest fields using ACL: manifest must contain NAME, VERSION, SHA256 */
@@ -215,6 +246,7 @@ int main(int argc, char **argv) {
             /* Build a single-entry profile plan pointing relpath "<pkg_name>" to store_path/files */
             ProfileEntry entry;
             memset(&entry, 0, sizeof(entry));
+
             entry.relpath = strdup(pkg_name);
             if (!entry.relpath) {
                 fprintf(stderr, "Out of memory\n");
@@ -224,8 +256,9 @@ int main(int argc, char **argv) {
                 return 1;
             }
 
+            /* build target path "<store_path>/files" */
             size_t tlen = strlen(store_path) + strlen("/files") + 1;
-            char *target = malloc(tlen + 1);
+            char *target = malloc(tlen);
             if (!target) {
                 fprintf(stderr, "Out of memory\n");
                 free((void*)entry.relpath);
@@ -234,31 +267,54 @@ int main(int argc, char **argv) {
                 free(pkg_name); free(pkg_ver);
                 return 1;
             }
-            snprintf(target, tlen + 1, "%s/files", store_path);
+            snprintf(target, tlen, "%s/files", store_path);
             entry.target_path = target;
-            entry.pkg_name = pkg_name;
-            entry.pkg_version = pkg_ver;
 
-            char *tmp_profile_path = NULL;
-            int asm_rc = profile_assemble_tmp(&entry, 1, &tmp_profile_path);
-            free((void*)entry.target_path);
-            free((void*)entry.relpath);
-
-            if (asm_rc != PROFILE_OK) {
-                fprintf(stderr, "Failed to assemble profile (code %d)\n", asm_rc);
+            /* IMPORTANT: give profile_assemble_tmp independent heap copies for diagnostic fields */
+            entry.pkg_name = strdup(pkg_name);
+            entry.pkg_version = strdup(pkg_ver);
+            if (!entry.pkg_name || !entry.pkg_version) {
+                fprintf(stderr, "Out of memory\n");
+                free((void*)entry.target_path);
+                free((void*)entry.relpath);
+                free(entry.pkg_name); free(entry.pkg_version);
                 free(store_path); free(mname); free(mver); free(expected_sha);
                 free(manifest_url); free(pkg_url); acl_free(manifest); acl_free(index); registry_client_destroy(rc);
                 free(pkg_name); free(pkg_ver);
                 return 1;
             }
 
+            char *tmp_profile_path = NULL;
+            int asm_rc = profile_assemble_tmp(&entry, 1, &tmp_profile_path);
+
+            /* free the copies we allocated for the entry immediately after the call */
+            free((void*)entry.pkg_name); entry.pkg_name = NULL;
+            free((void*)entry.pkg_version); entry.pkg_version = NULL;
+
+            /* free entry-owned temporaries we made here */
+            free((void*)entry.target_path);
+            free((void*)entry.relpath);
+
+            if (asm_rc != PROFILE_OK) {
+                fprintf(stderr, "Failed to assemble profile (code %d)\n", asm_rc);
+                /* tmp_profile_path is guaranteed NULL on error by the API contract */
+                free(store_path); free(mname); free(mver); free(expected_sha);
+                free(manifest_url); free(pkg_url); acl_free(manifest); acl_free(index); registry_client_destroy(rc);
+                free(pkg_name); free(pkg_ver);
+                return 1;
+            }
+
+            /* Try to activate. On success the tmp profile directory has been consumed by the profile manager;
+            per the API contract do NOT free tmp_profile_path after a successful activate. */
             if (profile_atomic_activate(tmp_profile_path, profile) != 0) {
                 fprintf(stderr, "Failed to activate profile\n");
-                /* keep tmp_profile_path for inspection */
+                /* ownership of tmp_profile_path remains with caller on error: free it and allow inspection if desired */
+                free(tmp_profile_path);
             } else {
                 fprintf(stderr, "Activated %s@%s into profile %s\n", pkg_name, pkg_ver, profile);
+                /* DO NOT free tmp_profile_path after successful activation according to API contract */
+                tmp_profile_path = NULL;
             }
-            free(tmp_profile_path);
         }
     } else {
         fprintf(stderr, "Installed %s@%s but did not activate (--no-activate)\n", pkg_name, pkg_ver);

@@ -48,7 +48,7 @@ int downloader_stream_to_temp_with_sha256(const char *url,
        Provide the FILE* as WRITEDATA so curl will fwrite into it. */
     curl_easy_setopt(easy, CURLOPT_URL, (void*)url);
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, (void*)f);
-    curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)1);
+    curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)0);
 
     int rc = curl_easy_perform(easy);
     curl_easy_cleanup(easy);

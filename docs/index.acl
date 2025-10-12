@@ -1,5 +1,5 @@
 Registry {
-    string url = "https://$GITHUB_ACTOR.github.io/AtlasLinux/pandora/index.acl";
+    string url = "https://atlaslinux.github.io/AtlasLinux/pandora/index.acl";
     int priority = 100;
     bool require_signatures = false;
     string cache_policy = "ttl=3600";
@@ -11,8 +11,8 @@ Registry {
         string pkg_base_url = "";
 
         Version "1.0.0" {
-            string manifest_url = "https://$GITHUB_ACTOR.github.io/AtlasLinux/pandora/docs/pkgs/mytool/1.0.0/manifest.acl";
-            string pkg_url = "https://$GITHUB_ACTOR.github.io/AtlasLinux/pandora/releases/download/mytool-1.0.0/mytool-1.0.0.pkg";
+            string manifest_url = "https://atlaslinux.github.io/AtlasLinux/pandora/docs/pkgs/mytool/1.0.0/manifest.acl";
+            string pkg_url = "https://atlaslinux.github.io/AtlasLinux/pandora/releases/download/mytool-1.0.0/mytool-1.0.0.pkg";
             string sha256 = "b6dc229457732c0d0fe018961825d89704fd6ff49a2774d7c63a933765f84f91";
             bool deprecated = false;
         }

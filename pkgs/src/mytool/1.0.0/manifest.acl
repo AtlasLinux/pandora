@@ -11,6 +11,6 @@ manifest {
         commit = "abcdef0123456789";
         date = "2025-10-12";
     }
-    string archive_sha256 = "03909b5b45720b0af771f0233eb5a71bcfaed4340841944df147c408febd069a";
+    string archive_sha256 = "9326ae5d58c78791eb57503e9c488135b6fa2f34cd63c79016ec07efb0c0a48b";
     string pkg_format = "pandora-v1";
 }

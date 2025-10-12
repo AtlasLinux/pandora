@@ -152,6 +152,7 @@ int main(int argc, char **argv) {
     char *computed_sha = NULL;
     fprintf(stderr, "Downloading %s ...\n", pkg_url);
     int dlrc = downloader_stream_to_temp_with_sha256(pkg_url, &tmp_path, &computed_sha, NULL, NULL);
+    puts(tmp_path);
     if (dlrc != 0) {
         fprintf(stderr, "Download failed (code %d)\n", dlrc);
         free(mname); free(mver); free(expected_sha); free(manifest_url); free(pkg_url);

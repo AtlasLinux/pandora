@@ -107,10 +107,16 @@ void sha256_inc_final(sha256_ctx_t *ctx, uint8_t digest[32]) {
     } else {
         padlen = 64 + 56 - ctx->buflen;
     }
+
+    uint64_t orig_bitlen = ctx->bitlen;
+
+    /* add padding bytes (temporarily restore bitlen after update so bitlen remains original) */
     sha256_inc_update(ctx, pad, padlen);
-    /* append 64-bit big-endian length */
+    ctx->bitlen = orig_bitlen;
+
+    /* append 64-bit big-endian length based on original bitlen */
     uint8_t lenbuf[8];
-    uint64_t bitlen_be = ctx->bitlen;
+    uint64_t bitlen_be = orig_bitlen;
     lenbuf[0] = (uint8_t)(bitlen_be >> 56);
     lenbuf[1] = (uint8_t)(bitlen_be >> 48);
     lenbuf[2] = (uint8_t)(bitlen_be >> 40);
@@ -120,6 +126,7 @@ void sha256_inc_final(sha256_ctx_t *ctx, uint8_t digest[32]) {
     lenbuf[6] = (uint8_t)(bitlen_be >> 8);
     lenbuf[7] = (uint8_t)(bitlen_be);
     sha256_inc_update(ctx, lenbuf, 8);
+
     /* produce digest */
     for (int i = 0; i < 8; ++i) {
         digest[i*4 + 0] = (uint8_t)(ctx->h[i] >> 24);

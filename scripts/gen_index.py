@@ -51,7 +51,7 @@ def find_pkgs(input_dir: Path) -> Dict[str, List[Tuple[str, Path]]]:
 def write_manifest(out_manifest: Path, name: str, version: str, sha256: str, pkg_url: str):
     out_manifest.parent.mkdir(parents=True, exist_ok=True)
     content = []
-    content.append('NAME {')
+    content.append('Manifest {')
     content.append(f'    string name = "{name}";')
     content.append(f'    string version = "{version}";')
     content.append(f'    string sha256 = "{sha256}";')

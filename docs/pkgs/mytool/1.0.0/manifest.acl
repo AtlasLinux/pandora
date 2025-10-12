@@ -1,4 +1,4 @@
-NAME {
+Manifest {
     string name = "mytool";
     string version = "1.0.0";
     string sha256 = "03909b5b45720b0af771f0233eb5a71bcfaed4340841944df147c408febd069a";

@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/gen_index.py
-          ./scripts/gen_index.py --input pkgs/bin --out docs --pages-base "https://atlaslinux.github.io/pandora"
+          ./scripts/gen_index.py --input pkgs/bin --out docs
 
       - name: Commit docs (Pages) changes
         env:

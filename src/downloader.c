@@ -51,7 +51,6 @@ int downloader_stream_to_temp_with_sha256(const char *url,
                                           void *userdata)
 {
     (void)progress; (void)userdata;
-    puts(url);
 
     if (!url || !out_temp_path || !out_sha256_hex) return CURLE_OTHER_ERROR;
 
@@ -62,7 +61,6 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     FILE *f = fdopen(fd, "wb+");
     if (!f) { close(fd); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
-    /* initialize curl for this request (you may prefer a single global init elsewhere) */
     if (curl_global_init(0) != 0) {
         fclose(f); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR;
     }
@@ -70,10 +68,8 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     CURL *easy = curl_easy_init();
     if (!easy) { curl_global_cleanup(); fclose(f); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
-    /* Ask your simple curl to write directly into our FILE* */
     curl_easy_setopt(easy, CURLOPT_URL, (void*)url);
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, (void*)f);
-    /* your wrapper expects a pointer-sized flag for verbose; mirror how your test app set it */
     curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)1);
 
     int rc = curl_easy_perform(easy);
@@ -85,14 +81,16 @@ int downloader_stream_to_temp_with_sha256(const char *url,
         return rc;
     }
 
-    /* flush and close file so we can reopen for reading and compute SHA */
+    /* flush and sync to ensure all bytes are written */
     fflush(f);
+#if defined(_POSIX_VERSION)
+    fsync(fileno(f));
+#endif
     fclose(f);
 
-    /* Compute SHA256 by reading the file we just wrote */
-    uint8_t digest[32];
-    sha256_ctx_t sha;
-    sha256_inc_init(&sha);
+    /* Compute SHA256 by reading the file exactly as the standalone example does */
+    sha256_ctx_t ctx;
+    sha256_inc_init(&ctx);
 
     FILE *r = fopen(tmp_path, "rb");
     if (!r) { unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
@@ -100,21 +98,26 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     unsigned char buf[64 * 1024];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), r)) > 0) {
-        sha256_inc_update(&sha, buf, n);
+        sha256_inc_update(&ctx, buf, n);
     }
     if (ferror(r)) {
-        fclose(r); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
+        perror("read");
+        fclose(r);
+        unlink(tmp_path);
+        free(tmp_path);
+        return CURLE_RECV_ERROR;
     }
     fclose(r);
 
-    sha256_inc_final(&sha, digest);
+    uint8_t digest[32];
+    sha256_inc_final(&ctx, digest);
 
     char *hex = malloc(65);
     if (!hex) { unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
     sha256_to_hex_lower(digest, hex);
 
-    *out_temp_path = tmp_path;    /* malloc'd path */
-    *out_sha256_hex = hex;        /* malloc'd hex string */
+    *out_temp_path = tmp_path;
+    *out_sha256_hex = hex;
 
     return CURLE_OK;
 }

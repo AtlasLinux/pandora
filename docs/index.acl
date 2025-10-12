@@ -1,0 +1,22 @@
+Registry {
+    string url = "index.acl";
+    int priority = 100;
+    bool require_signatures = false;
+    string cache_policy = "ttl=3600";
+
+    /* mytool package */
+    Package "mytool" {
+        string[] versions = { "1.0.0" };
+        string latest = "1.0.0";
+        string pkg_base_url = "";
+
+        Version "1.0.0" {
+            string manifest_url = "docs/pkgs/mytool/1.0.0/manifest.acl";
+            string pkg_url = "releases/download/mytool-1.0.0/mytool-1.0.0.pkg";
+            string sha256 = "03909b5b45720b0af771f0233eb5a71bcfaed4340841944df147c408febd069a";
+            bool deprecated = false;
+        }
+
+    }
+
+}

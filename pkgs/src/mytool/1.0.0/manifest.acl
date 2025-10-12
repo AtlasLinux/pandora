@@ -1,0 +1,16 @@
+manifest {
+    string name = "mytool";
+    string version = "3.0.0";
+    string arch = "x86_64";
+    string[] authors = { "CI Builder <ci@example.com>" };
+    string license = "MIT";
+    string[] dependencies = { "libfoo@1.0.0" };
+    string[] install_hooks = { "hooks/preinstall.acl", "hooks/postinstall.acl" };
+    build_meta {
+        builder = "mpt";
+        commit = "abcdef0123456789";
+        date = "2025-10-12";
+    }
+    string archive_sha256 = "03909b5b45720b0af771f0233eb5a71bcfaed4340841944df147c408febd069a";
+    string pkg_format = "pandora-v1";
+}

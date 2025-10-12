@@ -435,7 +435,7 @@ static char *sanitize_relpath(const char *p)
 }
 
 /* unpack: read table, compute blob_start, then stream blobs sequentially */
-void do_unpack(int argc, char **argv) {
+static void do_unpack(int argc, char **argv) {
     if (argc < 2) die("unpack requires: unpack <archive.pnd> [destdir]");
     const char *arcname = argv[1];
 
@@ -588,3 +588,31 @@ void do_unpack(int argc, char **argv) {
     free(recs);
     fclose(in);
 }
+
+#ifndef NO_MAIN
+/* main: simple CLI dispatch */
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "usage:\n  %s pack <archive.pnd> <file-or-dir>...\n  %s unpack <archive.pnd> [destdir]\n", argv[0], argv[0]);
+        return EXIT_FAILURE;
+    }
+    if (strcmp(argv[1], "pack") == 0) {
+        /* shift argv so pack sees argv[1]=archive */
+        do_pack(argc - 1, argv + 1);
+    } else if (strcmp(argv[1], "unpack") == 0) {
+        do_unpack(argc - 1, argv + 1);
+    } else {
+        fprintf(stderr, "unknown command '%s'\n", argv[1]);
+        return EXIT_FAILURE;
+    }
+
+    /* free recorded src/path entries */
+    for (size_t i = 0; i < g_rec_cnt; ++i) {
+        free(g_recs[i].path);
+        free(g_recs[i].src);
+    }
+    free(g_recs);
+
+    return EXIT_SUCCESS;
+}
+#endif

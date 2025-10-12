@@ -1,0 +1,116 @@
+name: publish-releases
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build local arch if needed and create .pkg artifacts
+        run: |
+          set -euo pipefail
+          chmod +x scripts/gen_package.py
+          # Build every package source under pkgs/src/<name>/<ver>
+          shopt -s globstar nullglob
+          for src in pkgs/src/*/*; do
+            if [ -d "$src" ]; then
+              echo "Building package from $src"
+              ./scripts/gen_package.py "$src" --out-root pkgs/bin || {
+                echo "gen_package failed for $src"; exit 1;
+              }
+            fi
+          done
+
+      - name: Generate index and manifests (docs/)
+        env:
+          PAGES_BASE: "https://$GITHUB_ACTOR.github.io/${{ github.repository }}"
+        run: |
+          set -euo pipefail
+          chmod +x scripts/gen_index.py
+          ./scripts/gen_index.py --input pkgs/bin --out docs --pages-base "$PAGES_BASE"
+
+      - name: Commit docs (Pages) changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs || true
+          if ! git diff --staged --quiet; then
+            git commit -m "ci: update docs (index and manifests) [skip ci]" || true
+            # push using the automatic token provided by actions/checkout (persist-credentials: true)
+            git push origin HEAD:main
+          else
+            echo "No docs changes to commit"
+          fi
+
+      - name: Install GitHub CLI
+        uses: cli/gh-action@v2
+        with:
+          git_protocol: https
+
+      - name: Authenticate gh (use GITHUB_TOKEN)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$GITHUB_TOKEN" | gh auth login --with-token
+
+      - name: Create/upload releases for packages
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for pkg in pkgs/bin/*/*/*.pkg; do
+            ver_dir=$(dirname "$pkg")            # pkgs/bin/mytool/3.0.0
+            version=$(basename "$ver_dir")       # 3.0.0
+            pkg_dir=$(dirname "$ver_dir")        # pkgs/bin/mytool
+            name=$(basename "$pkg_dir")          # mytool
+            release_tag="${name}-${version}"
+            echo "Processing $pkg -> release $release_tag"
+
+            # create or update release attached to no git tag (lightweight release)
+            if gh release view "$release_tag" >/dev/null 2>&1; then
+              echo "Release $release_tag exists"
+            else
+              echo "Creating release $release_tag"
+              gh release create "$release_tag" --title "$release_tag" --notes "Release for ${name}@${version}" || {
+                echo "Failed to create release $release_tag"; exit 1;
+              }
+            fi
+
+            # upload asset, --clobber will replace existing asset of same name
+            echo "Uploading asset $pkg"
+            gh release upload "$release_tag" "$pkg" --clobber || {
+              echo "Failed to upload $pkg to release $release_tag"; exit 1;
+            }
+          done
+          echo "All packages processed."

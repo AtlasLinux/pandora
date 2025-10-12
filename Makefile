@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -L../../lib/libacl/build -L../../lib/libcurl/build -lacl -lcurl
+CFLAGS = -DNO_MAIN 
+LDFLAGS = -L../../lib/libacl/build -L../../lib/libcurl/build -lacl -lcurl 
 
 BUILD_DIR = build
 SRC_DIR = src
@@ -18,7 +19,7 @@ $(TARGET): $(OBJ)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $(LDFLAGS) $@
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

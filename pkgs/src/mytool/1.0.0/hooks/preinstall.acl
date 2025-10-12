@@ -1,0 +1,4 @@
+preinstall {
+    string action = "warn";
+    string msg = "Backing up config before installing mytool";
+}

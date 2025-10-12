@@ -11,35 +11,12 @@
 #include <sys/stat.h>
 #include <limits.h>
 
-/* Context passed to write callback */
-typedef struct {
-    FILE *outf;
-    sha256_ctx_t sha;
-    int error;
-} dl_ctx_t;
-
-/* Write callback must return number of bytes handled (size * nmemb) on success */
-static size_t dl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
-    dl_ctx_t *c = (dl_ctx_t*)userdata;
-    if (!c || !c->outf) return 0;
-    size_t total = size * nmemb;
-    if (total == 0) return 0;
-    size_t written = fwrite(ptr, 1, total, c->outf);
-    if (written != total) {
-        c->error = 1;
-        return 0; /* indicate error to libcurl */
-    }
-    sha256_inc_update(&c->sha, ptr, total);
-    return total; /* MUST return number of bytes processed */
-}
-
 /* Create tempfile and return its path (malloc'd) or NULL on error.
    Template is created under /tmp; adapt to PANDORA tmp path if desired. */
 static char *make_tempfile_path(int *out_fd) {
     char tmpl[] = "/tmp/pandora_dl_XXXXXX";
     int fd = mkstemp(tmpl);
     if (fd < 0) return NULL;
-    /* Caller takes ownership of fd */
     if (out_fd) *out_fd = fd;
     return strdup(tmpl);
 }
@@ -68,6 +45,8 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     CURL *easy = curl_easy_init();
     if (!easy) { curl_global_cleanup(); fclose(f); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
+    /* Use default write function provided by simplified curl.h implementation.
+       Provide the FILE* as WRITEDATA so curl will fwrite into it. */
     curl_easy_setopt(easy, CURLOPT_URL, (void*)url);
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, (void*)f);
     curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)1);
@@ -81,40 +60,57 @@ int downloader_stream_to_temp_with_sha256(const char *url,
         return rc;
     }
 
-    /* flush and sync to ensure all bytes are written */
     fflush(f);
 #if defined(_POSIX_VERSION)
     fsync(fileno(f));
 #endif
     fclose(f);
 
-    /* Compute SHA256 by reading the file exactly as the standalone example does */
-    sha256_ctx_t ctx;
-    sha256_inc_init(&ctx);
-
-    FILE *r = fopen(tmp_path, "rb");
-    if (!r) { unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
-
-    unsigned char buf[64 * 1024];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf), r)) > 0) {
-        sha256_inc_update(&ctx, buf, n);
+    /* Use one-shot sha256() from the updated sha256.h by reading file into memory */
+    struct stat st;
+    if (stat(tmp_path, &st) != 0) {
+        unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
     }
-    if (ferror(r)) {
-        perror("read");
+
+    size_t filesize = (size_t)st.st_size;
+    uint8_t *data = NULL;
+    if (filesize > 0) {
+        data = malloc(filesize);
+        if (!data) { unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
+
+        FILE *r = fopen(tmp_path, "rb");
+        if (!r) { free(data); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
+
+        size_t read_total = 0;
+        while (read_total < filesize) {
+            size_t n = fread(data + read_total, 1, filesize - read_total, r);
+            if (n == 0) {
+                if (ferror(r)) {
+                    perror("read");
+                    fclose(r);
+                    free(data);
+                    unlink(tmp_path);
+                    free(tmp_path);
+                    return CURLE_RECV_ERROR;
+                }
+                break;
+            }
+            read_total += n;
+        }
         fclose(r);
-        unlink(tmp_path);
-        free(tmp_path);
-        return CURLE_RECV_ERROR;
+        if (read_total != filesize) {
+            free(data); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
+        }
     }
-    fclose(r);
 
     uint8_t digest[32];
-    sha256_inc_final(&ctx, digest);
+    sha256(data, filesize, digest);
+
+    if (data) free(data);
 
     char *hex = malloc(65);
     if (!hex) { unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
-    sha256_to_hex_lower(digest, hex);
+    sha256_to_hex(digest, hex);
 
     *out_temp_path = tmp_path;
     *out_sha256_hex = hex;

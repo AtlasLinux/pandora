@@ -34,13 +34,13 @@ jobs:
       - name: Build local arch if needed and create .pkg artifacts
         run: |
           set -euo pipefail
-          chmod +x scripts/create_package.py
+          chmod +x scripts/create_pkg.py
           shopt -s globstar nullglob
           for src in pkgs/src/*/*; do
             if [ -d "$src" ]; then
               echo "Building package from $src"
-              ./scripts/create_package.py "$src" --out-root pkgs/bin || {
-                echo "create_package failed for $src"; exit 1;
+              ./scripts/create_pkg.py "$src" --out-root pkgs/bin || {
+                echo "create_pkg failed for $src"; exit 1;
               }
             fi
           done

@@ -49,15 +49,15 @@ static int prompt_yesno(const char *msg, int assume_yes) {
 static int manifest_get_sha256_and_names(AclBlock *manifest, char **out_name, char **out_ver, char **out_sha256) {
     if (!manifest || !out_name || !out_ver || !out_sha256) return -1;
     char *v = NULL;
-    if (!acl_get_string(manifest, "NAME", &v)) return -1;
+    if (!acl_get_string(manifest, "Manifest.name", &v)) return -1;
     *out_name = strdup(v);
     free(v);
     v = NULL;
-    if (!acl_get_string(manifest, "VERSION", &v)) { free(*out_name); return -1; }
+    if (!acl_get_string(manifest, "Manifest.version", &v)) { free(*out_name); return -1; }
     *out_ver = strdup(v);
     free(v);
     v = NULL;
-    if (!acl_get_string(manifest, "SHA256", &v)) { free(*out_name); free(*out_ver); return -1; }
+    if (!acl_get_string(manifest, "Manifest.sha256", &v)) { free(*out_name); free(*out_ver); return -1; }
     *out_sha256 = strdup(v);
     free(v);
     return 0;

@@ -137,3 +137,44 @@ void sha256_to_hex_lower(const uint8_t digest[32], char out_hex[65]) {
     }
     out_hex[64] = '\0';
 }
+
+#ifndef NO_MAIN
+#include <stdio.h>
+
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <file>\n", argv[0]);
+        return 2;
+    }
+    const char *path = argv[1];
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        perror("fopen");
+        return 1;
+    }
+
+    sha256_ctx_t ctx;
+    sha256_inc_init(&ctx);
+
+    unsigned char buf[64*1024];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        sha256_inc_update(&ctx, buf, n);
+    }
+    if (ferror(f)) {
+        perror("read");
+        fclose(f);
+        return 1;
+    }
+    fclose(f);
+
+    uint8_t digest[32];
+    sha256_inc_final(&ctx, digest);
+
+    char hex[65];
+    sha256_to_hex_lower(digest, hex);
+    printf("%s\n", hex);
+    return 0;
+}
+
+#endif

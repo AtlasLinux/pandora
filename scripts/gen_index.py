@@ -17,17 +17,47 @@ Behavior:
 """
 from __future__ import annotations
 import argparse
-import hashlib
 import sys
+import subprocess
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+# --- compute_sha256 replaced to compile and run ../src/sha256.c (which has main) ---
+SCRIPT_DIR = Path(__file__).resolve().parent
+SRC_SHA256_C = (SCRIPT_DIR / ".." / "src" / "sha256.c").resolve()
+TOOLS_DIR = SCRIPT_DIR / "tools"
+TOOL_BIN = (TOOLS_DIR / "sha256_c_bin").resolve()
+CC = os.environ.get("CC", "cc")
+CFLAGS = os.environ.get("CFLAGS", "-O2 -std=c11 -I" + str(SRC_SHA256_C.parent))
+
+def build_sha256_binary():
+    TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+    needs_build = True
+    if TOOL_BIN.exists():
+        bin_mtime = TOOL_BIN.stat().st_mtime
+        try:
+            src_mtime = SRC_SHA256_C.stat().st_mtime
+        except FileNotFoundError:
+            raise RuntimeError(f"Missing source SHA256 C file: {SRC_SHA256_C}")
+        if src_mtime <= bin_mtime:
+            needs_build = False
+    if not needs_build:
+        return TOOL_BIN
+    cmd = [CC] + CFLAGS.split() + [str(SRC_SHA256_C), "-o", str(TOOL_BIN)]
+    subprocess.check_call(cmd)
+    # ensure executable bit
+    TOOL_BIN.chmod(TOOL_BIN.stat().st_mode | 0o111)
+    return TOOL_BIN
+
 def compute_sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(64 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    """Compute sha256 by compiling and running ../src/sha256.c (which contains main)."""
+    binpath = build_sha256_binary()
+    proc = subprocess.run([str(binpath), str(path)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"sha256 binary failed for {path}: rc={proc.returncode} stderr={proc.stderr.strip()}")
+    return proc.stdout.strip()
+# --- end replacement ---
 
 def find_pkgs(input_dir: Path) -> Dict[str, List[Tuple[str, Path]]]:
     pkgs: Dict[str, List[Tuple[str, Path]]] = {}

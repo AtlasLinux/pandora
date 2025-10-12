@@ -34,6 +34,7 @@ jobs:
       - name: Build local arch if needed and create .pkg artifacts
         run: |
           set -euo pipefail
+          export PATH="$(pwd)/build/core/bin:$PATH"
           chmod +x scripts/create_pkg.py
           shopt -s globstar nullglob
           for src in pkgs/src/*/*; do

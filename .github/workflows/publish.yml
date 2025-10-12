@@ -35,7 +35,6 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/gen_package.py
-          # Build every package source under pkgs/src/<name>/<ver>
           shopt -s globstar nullglob
           for src in pkgs/src/*/*; do
             if [ -d "$src" ]; then
@@ -64,23 +63,23 @@ jobs:
           git add docs || true
           if ! git diff --staged --quiet; then
             git commit -m "ci: update docs (index and manifests) [skip ci]" || true
-            # push using the automatic token provided by actions/checkout (persist-credentials: true)
             git push origin HEAD:main
           else
             echo "No docs changes to commit"
           fi
 
       - name: Install GitHub CLI
-        uses: cli/gh-action@v2
-        with:
-          git_protocol: https
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y gh
 
       - name: Authenticate gh (use GITHUB_TOKEN)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
 
       - name: Create/upload releases for packages
         shell: bash
@@ -97,7 +96,6 @@ jobs:
             release_tag="${name}-${version}"
             echo "Processing $pkg -> release $release_tag"
 
-            # create or update release attached to no git tag (lightweight release)
             if gh release view "$release_tag" >/dev/null 2>&1; then
               echo "Release $release_tag exists"
             else
@@ -107,7 +105,6 @@ jobs:
               }
             fi
 
-            # upload asset, --clobber will replace existing asset of same name
             echo "Uploading asset $pkg"
             gh release upload "$release_tag" "$pkg" --clobber || {
               echo "Failed to upload $pkg to release $release_tag"; exit 1;

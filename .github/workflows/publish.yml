@@ -46,12 +46,10 @@ jobs:
           done
 
       - name: Generate index and manifests (docs/)
-        env:
-          PAGES_BASE: "https://atlaslinux.github.io/${{ github.repository }}"
         run: |
           set -euo pipefail
           chmod +x scripts/gen_index.py
-          ./scripts/gen_index.py --input pkgs/bin --out docs --pages-base "$PAGES_BASE"
+          ./scripts/gen_index.py --input pkgs/bin --out docs --pages-base "https://atlaslinux.github.io/pandora"
 
       - name: Commit docs (Pages) changes
         env:

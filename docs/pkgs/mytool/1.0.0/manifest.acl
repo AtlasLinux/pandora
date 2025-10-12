@@ -1,7 +1,7 @@
 Manifest {
     string name = "mytool";
     string version = "1.0.0";
-    string sha256 = "03909b5b45720b0af771f0233eb5a71bcfaed4340841944df147c408febd069a";
+    string sha256 = "b6dc229457732c0d0fe018961825d89704fd6ff49a2774d7c63a933765f84f91";
     string pkg_url = "https://atlaslinux.github.io/pandora/releases/download/mytool-1.0.0/mytool-1.0.0.pkg";
     bool signed = false;
 }

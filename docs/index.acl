@@ -11,7 +11,7 @@ Registry {
         string pkg_base_url = "";
 
         Version "1.0.0" {
-            string manifest_url = "https://atlaslinux.github.io/AtlasLinux/pandora/docs/pkgs/mytool/1.0.0/manifest.acl";
+            string manifest_url = "https://atlaslinux.github.io/AtlasLinux/pandora/pkgs/mytool/1.0.0/manifest.acl";
             string pkg_url = "https://atlaslinux.github.io/AtlasLinux/pandora/releases/download/mytool-1.0.0/mytool-1.0.0.pkg";
             string sha256 = "b6dc229457732c0d0fe018961825d89704fd6ff49a2774d7c63a933765f84f91";
             bool deprecated = false;

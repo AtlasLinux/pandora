@@ -77,7 +77,6 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)1);
 
     int rc = curl_easy_perform(easy);
-    fprintf(stderr, "DEBUG: curl_easy_perfom returned rc=%d\n", rc);
     curl_easy_cleanup(easy);
     curl_global_cleanup();
 

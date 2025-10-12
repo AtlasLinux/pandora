@@ -81,22 +81,12 @@ AclBlock *registry_client_fetch_index(RegistryClient *c)
     if (strncmp(c->index_url, "http://", 7) == 0 || strncmp(c->index_url, "https://", 8) == 0) {
         int rc = downloader_stream_to_temp_with_sha256(c->index_url, &tmp_path, &sha, NULL, NULL);
 
-        /* DEBUG: print downloader return and outputs */
-        fprintf(stderr, "DEBUG: downloader rc=%d, tmp_path=%s, sha=%s\n", rc, tmp_path ? tmp_path : "NULL", sha ? sha : "NULL");
-
         free(sha);
         if (rc != 0 || !tmp_path) {
             if (tmp_path) { /* ensure we remove any leftover file */ unlink(tmp_path); free(tmp_path); }
             return NULL;
         }
         txt = read_file_to_string(tmp_path);
-
-        /* DEBUG: show first 512 bytes of index for parser inspection */
-        if (txt) {
-            fprintf(stderr, "DEBUG: downloaded index head:\n%.512s\n---END HEAD---\n", txt);
-        } else {
-            fprintf(stderr, "DEBUG: read_file_to_string returned NULL for %s\n", tmp_path);
-        }
 
         unlink(tmp_path);
         free(tmp_path);

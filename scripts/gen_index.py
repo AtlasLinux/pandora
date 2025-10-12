@@ -85,7 +85,7 @@ def generate_index(out_dir: Path, pkgs: Dict[str, List[Tuple[str, Path]]], relea
         # include Version sub-blocks
         for (ver, pkgpath) in sorted(pkgs[name], key=lambda x: x[0], reverse=True):
             sha = compute_sha256(pkgpath)
-            manifest_rel = f'docs/pkgs/{name}/{ver}/manifest.acl'
+            manifest_rel = f'pkgs/{name}/{ver}/manifest.acl'
             manifest_url = release_url_fn(manifest_rel)
             pkg_url = release_url_fn(f'releases/download/{name}-{ver}/{pkgpath.name}')
             index_lines.append(f'        Version "{ver}" {{')

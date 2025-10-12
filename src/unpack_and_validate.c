@@ -42,15 +42,14 @@ int unpack_pkg_to_dir(const char *pkg_path, const char *dest_dir) {
     }
 
     /* Build argv for do_unpack. Adjust these args if your archiver expects different flags. */
-    char *argv[5];
-    argv[0] = "pandora-archiver";
-    argv[1] = "--extract";
-    argv[2] = (char *)pkg_path;
-    argv[3] = (char *)dest_dir;
-    argv[4] = NULL;
+    char *argv[4];
+    argv[0] = "unpack";
+    argv[1] = (char *)pkg_path;
+    argv[2] = (char *)dest_dir;
+    argv[3] = NULL;
 
     /* Call the archiver in-process. If the archiver calls exit(), this will exit the process. */
-    do_unpack(4, argv);
+    do_unpack(3, argv);
 
     /* Minimal sanity checks: dest_dir exists and contains at least one non-dot entry. */
     struct stat st;

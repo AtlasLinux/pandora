@@ -61,7 +61,6 @@ static void die(const char *fmt, ...)
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);
-    exit(EXIT_FAILURE);
 }
 
 static void *xmalloc(size_t n) {

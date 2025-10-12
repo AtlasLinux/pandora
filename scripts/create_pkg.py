@@ -8,7 +8,7 @@ Usage:
   scripts/create_package.py <src_dir> [--out-root pkgs] [--keep-temp] [--arch-cmd PATH]
 
 Examples:
-  scripts/create_package.py docs/src/mytool/3.0.0 --out-root pkgs
+  scripts/create_package.py pkgs/src/mytool/3.0.0 --out-root pkgs
 
 Behavior:
 - Expects a manifest.acl file at the top of <src_dir>.

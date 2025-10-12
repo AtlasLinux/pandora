@@ -7,7 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <sys/stat.h>
 #include <limits.h>
 
@@ -66,7 +65,8 @@ int downloader_stream_to_temp_with_sha256(const char *url,
 #endif
     fclose(f);
 
-    /* Use one-shot sha256() from the updated sha256.h by reading file into memory */
+    /* Compute SHA-256 using the exact same method as the standalone sha256 CLI above:
+       stat the file, allocate a buffer of file size, read the entire file, run one-shot sha256(). */
     struct stat st;
     if (stat(tmp_path, &st) != 0) {
         unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
@@ -74,19 +74,19 @@ int downloader_stream_to_temp_with_sha256(const char *url,
 
     size_t filesize = (size_t)st.st_size;
     uint8_t *data = NULL;
-    if (filesize > 0) {
-        data = malloc(filesize);
-        if (!data) { unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
+    if (filesize > 0) {
         FILE *r = fopen(tmp_path, "rb");
-        if (!r) { free(data); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
+        if (!r) { unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
+
+        data = malloc(filesize);
+        if (!data) { fclose(r); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
         size_t read_total = 0;
         while (read_total < filesize) {
             size_t n = fread(data + read_total, 1, filesize - read_total, r);
             if (n == 0) {
                 if (ferror(r)) {
-                    perror("read");
                     fclose(r);
                     free(data);
                     unlink(tmp_path);
@@ -99,7 +99,10 @@ int downloader_stream_to_temp_with_sha256(const char *url,
         }
         fclose(r);
         if (read_total != filesize) {
-            free(data); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
+            free(data);
+            unlink(tmp_path);
+            free(tmp_path);
+            return CURLE_RECV_ERROR;
         }
     }
 

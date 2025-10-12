@@ -18,9 +18,7 @@ typedef struct {
     int error;
 } dl_ctx_t;
 
-/* Write callback expected to be called by your simplified libcurl when
-   CURLOPT_WRITEDATA is set to the pointer to dl_ctx_t. It must match the
-   prototype used by your curl implementation (we assume fwrite-like). */
+/* Write callback must return number of bytes handled (size * nmemb) on success */
 static size_t dl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
     dl_ctx_t *c = (dl_ctx_t*)userdata;
     if (!c || !c->outf) return 0;
@@ -29,11 +27,10 @@ static size_t dl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) 
     size_t written = fwrite(ptr, 1, total, c->outf);
     if (written != total) {
         c->error = 1;
-        return 0; /* indicate error */
+        return 0; /* indicate error to libcurl */
     }
-    /* update incremental sha256 */
     sha256_inc_update(&c->sha, ptr, total);
-    return written / size; /* return nmemb as number of items written */
+    return total; /* MUST return number of bytes processed */
 }
 
 /* Create tempfile and return its path (malloc'd) or NULL on error.
@@ -47,13 +44,15 @@ static char *make_tempfile_path(int *out_fd) {
     return strdup(tmpl);
 }
 
-/* Public API: single-pass download into tempfile with incremental SHA256. */
 int downloader_stream_to_temp_with_sha256(const char *url,
                                           char **out_temp_path,
                                           char **out_sha256_hex,
                                           download_progress_cb progress,
                                           void *userdata)
 {
+    (void)progress; (void)userdata;
+    puts(url);
+
     if (!url || !out_temp_path || !out_sha256_hex) return CURLE_OTHER_ERROR;
 
     int fd;
@@ -63,6 +62,7 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     FILE *f = fdopen(fd, "wb+");
     if (!f) { close(fd); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
+    /* initialize curl for this request (you may prefer a single global init elsewhere) */
     if (curl_global_init(0) != 0) {
         fclose(f); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR;
     }
@@ -70,47 +70,52 @@ int downloader_stream_to_temp_with_sha256(const char *url,
     CURL *easy = curl_easy_init();
     if (!easy) { curl_global_cleanup(); fclose(f); unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
 
-    dl_ctx_t ctx;
-    ctx.outf = f;
-    ctx.error = 0;
-    sha256_inc_init(&ctx.sha);
-
-    /* Set URL and pass ctx as WRITEDATA. The simplified libcurl is expected
-       to internally call dl_write_cb with the same userdata. If your curl
-       wrapper requires registering a function pointer explicitly, adapt it. */
+    /* Ask your simple curl to write directly into our FILE* */
     curl_easy_setopt(easy, CURLOPT_URL, (void*)url);
-    curl_easy_setopt(easy, CURLOPT_WRITEDATA, (void*)&ctx);
-    curl_easy_setopt(easy, CURLOPT_VERBOSE, NULL);
-
-    /* If your simplified curl supports setting a write function pointer,
-       you would set it here. This code assumes the curl impl will call
-       dl_write_cb for CURLOPT_WRITEDATA. */
+    curl_easy_setopt(easy, CURLOPT_WRITEDATA, (void*)f);
+    /* your wrapper expects a pointer-sized flag for verbose; mirror how your test app set it */
+    curl_easy_setopt(easy, CURLOPT_VERBOSE, (void*)(intptr_t)1);
 
     int rc = curl_easy_perform(easy);
+    fprintf(stderr, "DEBUG: curl_easy_perfom returned rc=%d\n", rc);
     curl_easy_cleanup(easy);
     curl_global_cleanup();
 
-    if (rc != CURLE_OK || ctx.error) {
+    if (rc != CURLE_OK) {
         fclose(f); unlink(tmp_path); free(tmp_path);
-        return rc != CURLE_OK ? rc : CURLE_RECV_ERROR;
+        return rc;
     }
 
-    /* All data written; finalize SHA and return hex string */
-    uint8_t digest[32];
-    sha256_inc_final(&ctx.sha, digest);
-    char *hex = malloc(65);
-    if (!hex) {
-        fclose(f); unlink(tmp_path); free(tmp_path);
-        return CURLE_OTHER_ERROR;
-    }
-    sha256_to_hex_lower(digest, hex);
-
-    /* flush and rewind file so caller can read it */
+    /* flush and close file so we can reopen for reading and compute SHA */
     fflush(f);
-    fseek(f, 0, SEEK_SET);
     fclose(f);
+
+    /* Compute SHA256 by reading the file we just wrote */
+    uint8_t digest[32];
+    sha256_ctx_t sha;
+    sha256_inc_init(&sha);
+
+    FILE *r = fopen(tmp_path, "rb");
+    if (!r) { unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR; }
+
+    unsigned char buf[64 * 1024];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), r)) > 0) {
+        sha256_inc_update(&sha, buf, n);
+    }
+    if (ferror(r)) {
+        fclose(r); unlink(tmp_path); free(tmp_path); return CURLE_RECV_ERROR;
+    }
+    fclose(r);
+
+    sha256_inc_final(&sha, digest);
+
+    char *hex = malloc(65);
+    if (!hex) { unlink(tmp_path); free(tmp_path); return CURLE_OTHER_ERROR; }
+    sha256_to_hex_lower(digest, hex);
 
     *out_temp_path = tmp_path;    /* malloc'd path */
     *out_sha256_hex = hex;        /* malloc'd hex string */
+
     return CURLE_OK;
 }

@@ -47,7 +47,7 @@ jobs:
 
       - name: Generate index and manifests (docs/)
         env:
-          PAGES_BASE: "https://$GITHUB_ACTOR.github.io/${{ github.repository }}"
+          PAGES_BASE: "https://atlaslinux.github.io/${{ github.repository }}"
         run: |
           set -euo pipefail
           chmod +x scripts/gen_index.py

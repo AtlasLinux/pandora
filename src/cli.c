@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 
     /* parse args */
     const char *pkg_spec = NULL;
-    const char *index_url = "http://localhost:8000/index.acl";
+    const char *index_url = "https://atlaslinux.github.io/pandora/index.acl";
     const char *profile = "default";
     int no_activate = 0;
     int assume_yes = 0;

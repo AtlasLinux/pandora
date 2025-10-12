@@ -69,7 +69,7 @@ static char *read_file_to_string(const char *path)
     return buf;
 }
 
- /* Fetch index URL, cache text and parsed AclBlock, return parsed block (owned by client) */
+/* Fetch index URL, cache text and parsed AclBlock, return parsed block (owned by client) */
 AclBlock *registry_client_fetch_index(RegistryClient *c)
 {
     if (!c || !c->index_url) return NULL;
@@ -78,32 +78,48 @@ AclBlock *registry_client_fetch_index(RegistryClient *c)
     char *tmp_path = NULL;
     char *sha = NULL;
 
-    /* If index_url looks like http(s), use downloader; otherwise treat as local file path */
     if (strncmp(c->index_url, "http://", 7) == 0 || strncmp(c->index_url, "https://", 8) == 0) {
         int rc = downloader_stream_to_temp_with_sha256(c->index_url, &tmp_path, &sha, NULL, NULL);
+
+        /* DEBUG: print downloader return and outputs */
+        fprintf(stderr, "DEBUG: downloader rc=%d, tmp_path=%s, sha=%s\n", rc, tmp_path ? tmp_path : "NULL", sha ? sha : "NULL");
+
         free(sha);
         if (rc != 0 || !tmp_path) {
-            free(tmp_path);
+            if (tmp_path) { /* ensure we remove any leftover file */ unlink(tmp_path); free(tmp_path); }
             return NULL;
         }
         txt = read_file_to_string(tmp_path);
+
+        /* DEBUG: show first 512 bytes of index for parser inspection */
+        if (txt) {
+            fprintf(stderr, "DEBUG: downloaded index head:\n%.512s\n---END HEAD---\n", txt);
+        } else {
+            fprintf(stderr, "DEBUG: read_file_to_string returned NULL for %s\n", tmp_path);
+        }
+
         unlink(tmp_path);
         free(tmp_path);
         if (!txt) return NULL;
     } else {
-        /* local file path */
         txt = read_file_to_string(c->index_url);
-        if (!txt) return NULL;
+        if (!txt) { fprintf(stderr, "DEBUG: failed to read local index file %s\n", c->index_url); return NULL; }
     }
 
-    /* free any previous cached index */
     free(c->index_text);
     if (c->index_acl) { acl_free(c->index_acl); c->index_acl = NULL; }
     c->index_text = txt;
 
     AclBlock *root = acl_parse_string(txt);
-    if (!root) return NULL;
-    if (!acl_resolve_all(root)) { acl_free(root); return NULL; }
+    if (!root) {
+        fprintf(stderr, "DEBUG: acl_parse_string returned NULL\n");
+        return NULL;
+    }
+    if (!acl_resolve_all(root)) {
+        fprintf(stderr, "DEBUG: acl_resolve_all failed\n");
+        acl_free(root);
+        return NULL;
+    }
 
     c->index_acl = root;
     return root;

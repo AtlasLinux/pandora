@@ -435,7 +435,7 @@ static char *sanitize_relpath(const char *p)
 }
 
 /* unpack: read table, compute blob_start, then stream blobs sequentially */
-static void do_unpack(int argc, char **argv) {
+void do_unpack(int argc, char **argv) {
     if (argc < 2) die("unpack requires: unpack <archive.pnd> [destdir]");
     const char *arcname = argv[1];
 

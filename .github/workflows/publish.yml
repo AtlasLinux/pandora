@@ -75,11 +75,9 @@ jobs:
           sudo apt-get install -y gh
 
       - name: Authenticate gh (use GITHUB_TOKEN)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
+          printf '%s' "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
       - name: Create/upload releases for packages
         shell: bash

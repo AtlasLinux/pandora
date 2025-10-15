@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -DNO_MAIN 
+CFLAGS = -DPANDORA -Iinclude -D_POSIX_C_SOURCE=200809L
 LDFLAGS = -L../../lib/libacl/build -L../../lib/libcurl/build -lacl -lcurl 
 
 BUILD_DIR = build

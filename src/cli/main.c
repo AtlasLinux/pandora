@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "fs.h"
-#include "err.h"
+#include "fs/fs.h"
+#include "util/err.h"
 
 int main(int argc, char** argv) {
     if (argc < 2) {

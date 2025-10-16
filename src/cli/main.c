@@ -4,6 +4,7 @@
 
 #include "fs/fs.h"
 #include "util/err.h"
+#include "cli/cli.h"
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -12,5 +13,7 @@ int main(int argc, char** argv) {
     }
     if (strcmp(argv[1], "init") == 0) {
         return (int)fs_init();
+    } else if (strcmp(argv[1], "help") == 0) {
+        return (int)cli_help();
     }
 }

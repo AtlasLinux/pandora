@@ -1,5 +1,5 @@
-#ifndef ACL_H
-#define ACL_H
+#ifndef CORE_ACL_H
+#define CORE_ACL_H
 
 #include <stdio.h>
 

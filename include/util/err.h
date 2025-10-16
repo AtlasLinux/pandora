@@ -1,5 +1,5 @@
-#ifndef ERR_H
-#define ERR_H
+#ifndef UTIL_ERR_H
+#define UTIL_ERR_H
 
 typedef enum {
     ERR_FAILED = -1,

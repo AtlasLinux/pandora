@@ -1,5 +1,5 @@
-#ifndef CURL_H
-#define CURL_H
+#ifndef CORE_CURL_H
+#define CORE_CURL_H
 
 #include <stdio.h>
 

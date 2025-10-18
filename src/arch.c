@@ -588,7 +588,7 @@ void do_unpack(int argc, char **argv) {
     fclose(in);
 }
 
-#ifndef NO_MAIN
+#ifndef PANDORA
 /* main: simple CLI dispatch */
 int main(int argc, char **argv) {
     if (argc < 2) {

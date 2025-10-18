@@ -119,7 +119,7 @@ int ct_memcmp(const void *a, const void *b, size_t len) {
     return diff == 0;
 }
 
-#ifndef NO_MAIN
+#ifndef PANDORA
 #include <sys/stat.h>
 #include <errno.h>
 
